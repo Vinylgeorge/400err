@@ -13,17 +13,17 @@
   // -------------------------
   // Configuration
   // -------------------------
-  const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1Ytmr7dHSAv69N27uZcrhKaEerL8WhzMCI02vugq_C_M/export?format=csv&gid=0';
+  const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1Jmx4qVw9J_CQNZPuq_hCL08lZzSW2vO4rEl9z9uO5sU/export?format=csv&gid=0';
   const FIREBASE_APP_JS = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   const FIRESTORE_JS = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
   const FIREBASE_CFG = {
-    apiKey: "AIzaSyCCtBCAJvQCDj8MXb2w90qYUqRrENIIGIQ",
-    authDomain: "mturk-monitordeep.firebaseapp.com",
-    projectId: "mturk-monitordeep",
-    storageBucket: "mturk-monitordeep.firebasestorage.app",
-    messagingSenderId: "58392297487",
-    appId: "1:58392297487:web:1365ad12110ffd0586637a"
+  apiKey: "AIzaSyBZKAO1xSMUWBWHusx8sfZGs0yd3QIKOqU",
+  authDomain: "hasibteam1-10981.firebaseapp.com",
+  projectId: "hasibteam1-10981",
+  storageBucket: "hasibteam1-10981.firebasestorage.app",
+  messagingSenderId: "537251545985",
+  appId: "1:537251545985:web:05b1667f9ec7eb6258de80"
   };
 
   // SHA-256 hash of password
