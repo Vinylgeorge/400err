@@ -280,5 +280,4 @@
   sessionStorage.removeItem('earnings_mismatch_refresh');
 
   console.log(`[MTurk→Firebase] Synced ${data.workerId} (${alert}) → ${data.bankAccount}`);
-  showToastAndRedirect(`Synced ${data.workerId} (${alert})`, 3000);
-})();
+ })();
