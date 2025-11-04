@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>📊 Admin Dashboard</title>
+<title>📊 AB2soft Admin Dashboard</title>
 <style>
   body {
     font-family: "Segoe UI", sans-serif;
@@ -20,7 +20,6 @@
     border-radius: 8px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     padding: 16px;
-    margin-bottom: 24px;
   }
   #totalEarnings {
     font-size: 18px;
@@ -68,16 +67,16 @@
   <table id="earnings">
     <thead>
       <tr>
-        <th>Server IP</th>
-        <th>Team</th>
-        <th>Username</th>
-        <th>Worker ID</th>
+        <th>SERVER IP</th>
+        <th>TEAM</th>
+        <th>USERNAME</th>
+        <th>WORKER ID</th>
+        <th>Bank Account</th>
         <th>Current Earnings</th>
         <th>Last Month</th>
         <th>Last Transfer ($)</th>
         <th>Last Transfer Date</th>
-        <th>Next Transfer</th>
-        <th>Bank</th>
+        <th>Next Transfer Date</th>
         <th>Alert</th>
         <th>Timestamp (IST)</th>
       </tr>
@@ -90,7 +89,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// --- Firebase Config for ADMIN ---
+// ✅ New Firebase Config (hasibteam1-10981)
 const firebaseConfig = {
   apiKey: "AIzaSyBZKAO1xSMUWBWHusx8sfZGs0yd3QIKOqU",
   authDomain: "hasibteam1-10981.firebaseapp.com",
@@ -103,19 +102,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ----------------------------
-// 🕒 Helper: Parse & Format Timestamp
-// ----------------------------
+// 🕒 Format timestamp
 function getTimestampMillis(t) {
   try {
     if (!t) return 0;
     if (t.seconds) return t.seconds * 1000;
-    if (t.toDate) return t.toDate().getTime();
     if (typeof t === "string") return new Date(t).getTime();
     return 0;
   } catch { return 0; }
 }
-
 function formatIndianTime(t) {
   const ms = getTimestampMillis(t);
   if (!ms) return "—";
@@ -128,9 +123,7 @@ function formatIndianTime(t) {
   });
 }
 
-// ----------------------------
 // 💰 Earnings Logs
-// ----------------------------
 let tableData = [];
 
 onSnapshot(collection(db, "earnings_logs"), (snap) => {
@@ -141,29 +134,29 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
 
   snap.forEach(docSnap => {
     const d = docSnap.data();
-    const rawTs = d.timestamp || d.createdAt || d.timestampStr;
+    const rawTs = d.timestamp || d["TIMESTAMP"] || "";
     const tsStr = formatIndianTime(rawTs);
     const tsMillis = getTimestampMillis(rawTs);
-    const cur = parseFloat(d.currentEarnings) || 0;
+    const cur = parseFloat(d.currentEarnings || d["currentEarnings"] || 0);
 
     tableData.push({
-      serverIp: d.serverIp || d.ip || "",
-      team: d.team || "",
-      username: d.user || "",
-      workerId: d.workerId || "",
-      currentEarnings: d.currentEarnings || "",
-      lastMonthEarnings: d.lastMonthEarnings || "",
-      lastTransferAmount: d.lastTransferAmount || "",
-      lastTransferDate: d.lastTransferDate || "",
-      nextTransferDate: d.nextTransferDate || "",
-      bankAccount: d.bankAccount || "",
-      alert: d.alert || "",
+      serverIp: d["SERVER IP"] || d.ip || "",
+      team: d["TEAM"] || "",
+      username: d["USERNAME"] || "",
+      workerId: d["WORKER ID"] || "",
+      bankAccount: d["bankAccount"] || "",
+      currentEarnings: d["currentEarnings"] || "",
+      lastMonthEarnings: d["lastMonthEarnings"] || "",
+      lastTransferAmount: d["lastTransferAmount"] || "",
+      lastTransferDate: d["lastTransferDate"] || "",
+      nextTransferDate: d["nextTransferDate"] || "",
+      alert: d["alert"] || "",
       timestamp: tsStr,
       tsMillis
     });
   });
 
-  // Sort alerts first, then newest → oldest
+  // Sort: alert first, then latest timestamp
   tableData.sort((a, b) => {
     const aAlert = a.alert?.trim() ? 1 : 0;
     const bAlert = b.alert?.trim() ? 1 : 0;
@@ -175,7 +168,7 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
   const total = tableData.reduce((sum, d) => sum + (parseFloat(d.currentEarnings) || 0), 0);
   totalElem.textContent = `Total Current Earnings: $${total.toFixed(2)}`;
 
-  // Render table
+  // Render rows
   for (const row of tableData) {
     const alertHTML = row.alert?.trim()
       ? `<span style="color:#dc2626;font-weight:600;">${row.alert}</span>`
@@ -187,35 +180,33 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
         <td>${row.team}</td>
         <td>${row.username}</td>
         <td>${row.workerId}</td>
+        <td>${row.bankAccount}</td>
         <td>${row.currentEarnings}</td>
         <td>${row.lastMonthEarnings}</td>
         <td>${row.lastTransferAmount}</td>
         <td>${row.lastTransferDate}</td>
         <td>${row.nextTransferDate}</td>
-        <td>${row.bankAccount}</td>
         <td>${alertHTML}</td>
         <td>${row.timestamp}</td>
       </tr>`;
   }
 });
 
-// ----------------------------
 // 📥 CSV / Excel Export
-// ----------------------------
 window.downloadData = (type) => {
   if (!tableData.length) {
     alert("No data to export!");
     return;
   }
   const headers = [
-    "Server IP","Team","Username","Worker ID","Current Earnings",
-    "Last Month","Last Transfer ($)","Last Transfer Date","Next Transfer",
-    "Bank","Alert","Timestamp (IST)"
+    "SERVER IP","TEAM","USERNAME","WORKER ID","Bank Account",
+    "Current Earnings","Last Month","Last Transfer ($)",
+    "Last Transfer Date","Next Transfer Date","Alert","Timestamp (IST)"
   ];
   const rows = tableData.map(d => [
-    d.serverIp,d.team,d.username,d.workerId,d.currentEarnings,
-    d.lastMonthEarnings,d.lastTransferAmount,d.lastTransferDate,
-    d.nextTransferDate,d.bankAccount,d.alert,d.timestamp
+    d.serverIp,d.team,d.username,d.workerId,d.bankAccount,
+    d.currentEarnings,d.lastMonthEarnings,d.lastTransferAmount,
+    d.lastTransferDate,d.nextTransferDate,d.alert,d.timestamp
   ]);
 
   if (type === "csv") {
