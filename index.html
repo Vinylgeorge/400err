@@ -54,6 +54,13 @@
     margin-bottom: 10px;
   }
   .download:hover { background: #15803d; }
+  .ip-alert {
+    color: #dc2626;
+    font-weight: 600;
+  }
+  .ip-ok {
+    color: #15803d;
+  }
 </style>
 </head>
 <body>
@@ -77,6 +84,7 @@
         <th>Last Transfer ($)</th>
         <th>Last Transfer Date</th>
         <th>Next Transfer Date</th>
+        <th>IP</th>
         <th>Alert</th>
         <th>Timestamp (IST)</th>
       </tr>
@@ -89,7 +97,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ✅ New Firebase Config (hasibteam1-10981)
+// ✅ Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyBZKAO1xSMUWBWHusx8sfZGs0yd3QIKOqU",
   authDomain: "hasibteam1-10981.firebaseapp.com",
@@ -102,7 +110,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 🕒 Format timestamp
+// 🕒 Timestamp Helpers
 function getTimestampMillis(t) {
   try {
     if (!t) return 0;
@@ -140,7 +148,7 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
     const cur = parseFloat(d.currentEarnings || d["currentEarnings"] || 0);
 
     tableData.push({
-      serverIp: d["SERVER IP"] || d.ip || "",
+      serverIp: d["SERVER IP"] || "",
       team: d["TEAM"] || "",
       username: d["USERNAME"] || "",
       workerId: d["WORKER ID"] || "",
@@ -150,13 +158,14 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
       lastTransferAmount: d["lastTransferAmount"] || "",
       lastTransferDate: d["lastTransferDate"] || "",
       nextTransferDate: d["nextTransferDate"] || "",
+      ip: d["ip"] || "",
       alert: d["alert"] || "",
       timestamp: tsStr,
       tsMillis
     });
   });
 
-  // Sort: alert first, then latest timestamp
+  // Sort: alert first, then latest
   tableData.sort((a, b) => {
     const aAlert = a.alert?.trim() ? 1 : 0;
     const bAlert = b.alert?.trim() ? 1 : 0;
@@ -164,15 +173,18 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
     return b.tsMillis - a.tsMillis;
   });
 
-  // Compute total
+  // Total earnings
   const total = tableData.reduce((sum, d) => sum + (parseFloat(d.currentEarnings) || 0), 0);
   totalElem.textContent = `Total Current Earnings: $${total.toFixed(2)}`;
 
-  // Render rows
+  // Render
   for (const row of tableData) {
     const alertHTML = row.alert?.trim()
       ? `<span style="color:#dc2626;font-weight:600;">${row.alert}</span>`
       : `<span style="color:#16a34a;">✔ OK</span>`;
+
+    // 🔴 Red IP if “⚠️ IP Changed”
+    const ipClass = row.alert?.includes("IP Changed") ? "ip-alert" : "ip-ok";
 
     tbody.innerHTML += `
       <tr>
@@ -186,6 +198,7 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
         <td>${row.lastTransferAmount}</td>
         <td>${row.lastTransferDate}</td>
         <td>${row.nextTransferDate}</td>
+        <td class="${ipClass}">${row.ip}</td>
         <td>${alertHTML}</td>
         <td>${row.timestamp}</td>
       </tr>`;
@@ -201,12 +214,12 @@ window.downloadData = (type) => {
   const headers = [
     "SERVER IP","TEAM","USERNAME","WORKER ID","Bank Account",
     "Current Earnings","Last Month","Last Transfer ($)",
-    "Last Transfer Date","Next Transfer Date","Alert","Timestamp (IST)"
+    "Last Transfer Date","Next Transfer Date","IP","Alert","Timestamp (IST)"
   ];
   const rows = tableData.map(d => [
     d.serverIp,d.team,d.username,d.workerId,d.bankAccount,
     d.currentEarnings,d.lastMonthEarnings,d.lastTransferAmount,
-    d.lastTransferDate,d.nextTransferDate,d.alert,d.timestamp
+    d.lastTransferDate,d.nextTransferDate,d.ip,d.alert,d.timestamp
   ]);
 
   if (type === "csv") {
