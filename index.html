@@ -83,8 +83,8 @@
         <th>Last Transfer ($)</th>
         <th>Last Transfer Date</th>
         <th>Next Transfer Date</th>
-        <th>Bank Account</th>
         <th>IP</th>
+        <th>Bank Account</th>
         <th>Alert</th>
         <th>Timestamp (IST)</th>
       </tr>
@@ -152,12 +152,12 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
       team: d["TEAM"] || "",
       username: d["USERNAME"] || "",
       workerId: d["WORKER ID"] || "",
-      bankAccount: d["bankAccount"] || "",
       currentEarnings: d["currentEarnings"] || "",
       lastMonthEarnings: d["lastMonthEarnings"] || "",
       lastTransferAmount: d["lastTransferAmount"] || "",
       lastTransferDate: d["lastTransferDate"] || "",
       nextTransferDate: d["nextTransferDate"] || "",
+      bankAccount: d["bankAccount"] || "",
       ip: d["ip"] || "",
       alert: d["alert"] || "",
       timestamp: tsStr,
