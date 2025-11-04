@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>📊 Admin Dashboard</title>
+<title>📊 AB2soft Admin Dashboard</title>
 <style>
   body {
     font-family: "Segoe UI", sans-serif;
@@ -82,11 +82,11 @@
         <th>Last Month</th>
         <th>Last Transfer ($)</th>
         <th>Last Transfer Date</th>
-        <th>Next Transfer Date</th
-        <th>Bank Account</th>                        
+        <th>Next Transfer Date</th>
+        <th>Transfer Method (Bank/GC)</th>
         <th>IP</th>
         <th>Alert</th>
-        <th>Timestamp (IST)</th>
+        <th>Timestamp (Bangladesh)</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -110,7 +110,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 🕒 Timestamp Helpers
+// 🕒 Timestamp Helpers (Bangladesh)
 function getTimestampMillis(t) {
   try {
     if (!t) return 0;
@@ -119,12 +119,12 @@ function getTimestampMillis(t) {
     return 0;
   } catch { return 0; }
 }
-function formatIndianTime(t) {
+function formatBangladeshTime(t) {
   const ms = getTimestampMillis(t);
   if (!ms) return "—";
   const date = new Date(ms);
-  return date.toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
+  return date.toLocaleString("en-BD", {
+    timeZone: "Asia/Dhaka",
     hour12: true,
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit"
@@ -143,7 +143,7 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
   snap.forEach(docSnap => {
     const d = docSnap.data();
     const rawTs = d.timestamp || d["TIMESTAMP"] || "";
-    const tsStr = formatIndianTime(rawTs);
+    const tsStr = formatBangladeshTime(rawTs);
     const tsMillis = getTimestampMillis(rawTs);
     const cur = parseFloat(d.currentEarnings || d["currentEarnings"] || 0);
 
@@ -183,7 +183,6 @@ onSnapshot(collection(db, "earnings_logs"), (snap) => {
       ? `<span style="color:#dc2626;font-weight:600;">${row.alert}</span>`
       : `<span style="color:#16a34a;">✔ OK</span>`;
 
-    // 🔴 Red IP if “⚠️ IP Changed”
     const ipClass = row.alert?.includes("IP Changed") ? "ip-alert" : "ip-ok";
 
     tbody.innerHTML += `
@@ -212,14 +211,14 @@ window.downloadData = (type) => {
     return;
   }
   const headers = [
-    "SERVER IP","TEAM","USERNAME","WORKER ID","Bank Account",
-    "Current Earnings","Last Month","Last Transfer ($)",
-    "Last Transfer Date","Next Transfer Date","IP","Alert","Timestamp (IST)"
+    "SERVER IP","TEAM","USERNAME","WORKER ID","Current Earnings",
+    "Last Month","Last Transfer ($)","Last Transfer Date","Next Transfer Date",
+    "Transfer Method (Bank/GC)","IP","Alert","Timestamp (Bangladesh)"
   ];
   const rows = tableData.map(d => [
-    d.serverIp,d.team,d.username,d.workerId,d.bankAccount,
-    d.currentEarnings,d.lastMonthEarnings,d.lastTransferAmount,
-    d.lastTransferDate,d.nextTransferDate,d.ip,d.alert,d.timestamp
+    d.serverIp,d.team,d.username,d.workerId,d.currentEarnings,
+    d.lastMonthEarnings,d.lastTransferAmount,d.lastTransferDate,
+    d.nextTransferDate,d.bankAccount,d.ip,d.alert,d.timestamp
   ]);
 
   if (type === "csv") {
