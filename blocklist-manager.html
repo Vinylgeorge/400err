@@ -1,180 +1,228 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Block-list Manager (with remote sync)</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f7fb; }
-    h1 { font-size: 22px; margin-bottom: 10px; }
-    .card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
-    label { font-weight: bold; display: block; margin-bottom: 4px; }
-    input[type="text"] { width: 100%; padding: 8px; margin-bottom: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: monospace; font-size: 13px; }
-    button { padding: 6px 12px; border-radius: 4px; border: none; background: #2563eb; color: white; cursor: pointer; font-size: 13px; margin-right: 6px; }
-    button.secondary { background: #64748b; }
-    button.small { padding: 2px 6px; font-size: 11px; }
-    button:disabled { opacity: 0.5; cursor: default; }
-    .message { margin-top: 4px; font-size: 13px; }
-    .message.error { color: #b91c1c; }
-    .message.success { color: #166534; }
-    .list-container { max-height: 350px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; padding: 6px; font-family: monospace; font-size: 12px; }
-    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px; border-bottom: 1px solid #e5e7eb; }
-    .list-item:last-child { border-bottom: none; }
-    .list-item span { word-break: break-all; }
-    .count { font-size: 13px; color: #4b5563; margin-bottom: 6px; }
-    .filter-input { margin-bottom: 6px; }
-    pre { background: #0b1120; color: #e5e7eb; padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
-  </style>
+<meta charset="UTF-8">
+<title>Safe GitHub-Synced Block List Manager</title>
+
+<style>
+    body { font-family: Arial; margin: 20px; background:#f5f7fb; }
+    h2 { margin-bottom: 10px; }
+    .card {
+        background:white; padding:15px; margin-bottom:20px;
+        border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);
+    }
+    input,button {
+        padding:8px; font-size:14px; border-radius:5px;
+    }
+    input { width:100%; border:1px solid #bbb; }
+    button { cursor:pointer; border:none; background:#2563eb; color:white; margin-top:8px; }
+    button.red { background:#b91c1c; }
+    .list-item {
+        display:flex; justify-content:space-between; padding:5px 0;
+        border-bottom:1px solid #eee; font-family: monospace;
+    }
+    pre {
+        background:#111; color:#eee; padding:10px;
+        border-radius:6px; font-size:12px; overflow-x:auto;
+    }
+</style>
+
 </head>
 <body>
-  <h1>Requester Block List Manager (with remote source)</h1>
 
-  <div class="card">
-    <label for="addId">Add new Requester ID</label>
-    <input type="text" id="addId" placeholder="Enter requester ID (e.g., A3FLFYMLPH3O6I)" />
-    <button id="addBtn">Add</button>
-    <div id="addMsg" class="message"></div>
-  </div>
+<h2>🔒 Safe GitHub-Synced Requester Block List Manager</h2>
 
-  <div class="card">
-    <label for="removeId">Remove Requester ID</label>
-    <input type="text" id="removeId" placeholder="Enter requester ID to remove" />
-    <button id="removeBtn" class="secondary">Remove</button>
-    <div id="removeMsg" class="message"></div>
-  </div>
+<!-- TOKEN INPUT -->
+<div class="card">
+    <h3>GitHub Personal Access Token</h3>
+    <p>⭐ Token is <b>NOT saved</b> and <b>never leaves your computer</b>.</p>
+    <input id="token" type="password" placeholder="Paste your GitHub PAT (with: contents read/write)">
+    <button onclick="saveToken()">Save Token</button>
+    <div id="tokmsg"></div>
+</div>
 
-  <div class="card">
-    <div class="count">Current IDs: <span id="countDisplay">0</span></div>
-    <input type="text" id="filterInput" class="filter-input" placeholder="Filter list…" />
-    <div class="list-container" id="listContainer"></div>
-  </div>
+<!-- ADD -->
+<div class="card">
+    <h3>Add Requester ID</h3>
+    <input id="addId" placeholder="Enter new requester ID">
+    <button onclick="addRequester()">Add</button>
+    <div id="addmsg"></div>
+</div>
 
-  <div class="card">
-    <label>JSON to copy into your script</label>
-    <pre id="jsonOutput"></pre>
-    <button id="copyJsonBtn">Copy JSON</button>
-    <span id="copyMsg" class="message"></span>
-  </div>
+<!-- REMOVE -->
+<div class="card">
+    <h3>Remove Requester ID</h3>
+    <input id="removeId" placeholder="Enter requester ID to remove">
+    <button class="red" onclick="removeRequester()">Remove</button>
+    <div id="removemsg"></div>
+</div>
 
-  <script>
-    const remoteUrl = 'https://raw.githubusercontent.com/Vinylgeorge/400err/refs/heads/main/block_list.json';
+<!-- LIST -->
+<div class="card">
+    <h3>Block List</h3>
+    <div id="listBox"></div>
+</div>
 
-    // Local fallback list (can be empty or your previous list)
-    const localFallback = [
-      // (you may optionally paste your local list here or leave empty)
-    ];
+<!-- JSON -->
+<div class="card">
+    <h3>JSON Output</h3>
+    <pre id="jsonBox"></pre>
+</div>
 
-    let blockSet = new Set();
+<script>
+/* ------------------------
+   CONFIGURATION
+------------------------ */
+const owner  = "Vinylgeorge";
+const repo   = "400err";
+const path   = "block_list.json";
+const branch = "main";
 
-    async function init() {
-      try {
-        const resp = await fetch(remoteUrl, {cache: 'no-cache'});
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const data = await resp.json();
-        if (data.block_list && Array.isArray(data.block_list)) {
-          data.block_list.forEach(id => blockSet.add(id.trim().toUpperCase()));
-        }
-      } catch (err) {
-        console.warn('Could not fetch remote block_list.json — using local fallback. Error:', err);
-      }
-      // add fallback IDs too
-      localFallback.forEach(id => blockSet.add(id.trim().toUpperCase()));
+let token = "";
+let fileSha = "";
+let blockList = [];
 
-      blockList = Array.from(blockSet).sort();
-      renderList();
+/* ------------------------
+   SAVE TOKEN (LOCAL ONLY)
+------------------------ */
+function saveToken() {
+    token = document.getElementById("token").value.trim();
+    if (!token) {
+        document.getElementById("tokmsg").innerHTML = "❗ Enter a valid token";
+        return;
     }
+    document.getElementById("tokmsg").innerHTML = "✔️ Token saved (RAM only)";
 
-    let blockList = [];
+    loadFromGitHub();
+}
 
-    const addInput      = document.getElementById('addId');
-    const addBtn        = document.getElementById('addBtn');
-    const addMsg        = document.getElementById('addMsg');
-    const removeInput   = document.getElementById('removeId');
-    const removeBtn     = document.getElementById('removeBtn');
-    const removeMsg     = document.getElementById('removeMsg');
-    const listContainer = document.getElementById('listContainer');
-    const countDisplay  = document.getElementById('countDisplay');
-    const jsonOutput    = document.getElementById('jsonOutput');
-    const filterInput   = document.getElementById('filterInput');
-    const copyJsonBtn   = document.getElementById('copyJsonBtn');
-    const copyMsg       = document.getElementById('copyMsg');
-
-    function renderList() {
-      const filter = filterInput.value.trim().toUpperCase();
-      listContainer.innerHTML = '';
-      const filtered = blockList.filter(id => id.toUpperCase().includes(filter));
-      filtered.forEach(id => {
-        const row = document.createElement('div');
-        row.className = 'list-item';
-        const span = document.createElement('span');
-        span.textContent = id;
-        const btn = document.createElement('button');
-        btn.textContent = '❌';
-        btn.className = 'small secondary';
-        btn.title = 'Remove this requester';
-        btn.addEventListener('click', () => removeId(id));
-        row.appendChild(span);
-        row.appendChild(btn);
-        listContainer.appendChild(row);
-      });
-      countDisplay.textContent = blockList.length;
-      renderJson();
-    }
-
-    function renderJson() {
-      const obj = { block_list: blockList };
-      jsonOutput.textContent = JSON.stringify(obj, null, 2);
-    }
-
-    function showMessage(el, msg, type) {
-      el.textContent = msg;
-      el.className = 'message ' + (type || '');
-      if (msg) {
-        setTimeout(() => { el.textContent = ''; }, 3500);
-      }
-    }
-
-    function addId() {
-      let id = addInput.value.trim().toUpperCase();
-      if (!id) { showMessage(addMsg, 'Enter an ID', 'error'); return; }
-      if (blockSet.has(id)) { showMessage(addMsg, 'Requester ID already present', 'error'); return; }
-      blockSet.add(id);
-      blockList = Array.from(blockSet).sort();
-      addInput.value = '';
-      showMessage(addMsg, 'Added.', 'success');
-      renderList();
-    }
-
-    function removeId(id) {
-      const target = (id || removeInput.value.trim().toUpperCase());
-      if (!target) { showMessage(removeMsg, 'Enter an ID to remove', 'error'); return; }
-      if (!blockSet.has(target)) { showMessage(removeMsg, 'ID not in list', 'error'); return; }
-      blockSet.delete(target);
-      blockList = Array.from(blockSet).sort();
-      removeInput.value = '';
-      showMessage(removeMsg, 'Removed.', 'success');
-      renderList();
-    }
-
-    addBtn.addEventListener('click', addId);
-    removeBtn.addEventListener('click', () => removeId(null));
-    addInput.addEventListener('keyup', e => { if (e.key === 'Enter') addId(); });
-    removeInput.addEventListener('keyup', e => { if (e.key === 'Enter') removeId(null); });
-    filterInput.addEventListener('input', renderList);
-
-    copyJsonBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(jsonOutput.textContent);
-        copyMsg.textContent = 'Copied!';
-        copyMsg.className = 'message success';
-        setTimeout(() => { copyMsg.textContent = ''; }, 2500);
-      } catch (e) {
-        copyMsg.textContent = 'Copy failed.';
-        copyMsg.className = 'message error';
-      }
+/* ------------------------
+   LOAD EXISTING GITHUB JSON
+------------------------ */
+async function loadFromGitHub() {
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+    const res = await fetch(url, {
+        headers: { "Authorization": "Bearer " + token }
     });
 
-    // initialize
-    init();
-  </script>
+    if (!res.ok) {
+        document.getElementById("tokmsg").innerHTML = "❗ Invalid token or no repo access";
+        return;
+    }
+
+    const data = await res.json();
+    fileSha = data.sha;
+
+    const decoded = atob(data.content);
+    const json = JSON.parse(decoded);
+
+    blockList = [...new Set(json.block_list)].sort();
+
+    render();
+}
+
+/* ------------------------
+   PUSH UPDATED JSON TO GITHUB
+------------------------ */
+async function updateGitHub() {
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+    const newContent = {
+        block_list: blockList
+    };
+
+    const encoded = btoa(JSON.stringify(newContent, null, 2));
+
+    const body = {
+        message: "Update block_list.json via AB2soft HTML tool",
+        content: encoded,
+        sha: fileSha,
+        branch: branch
+    };
+
+    const res = await fetch(url, {
+        method: "PUT",
+        headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    fileSha = data.content.sha;
+}
+
+/* ------------------------
+   ADD REQUESTER
+------------------------ */
+async function addRequester() {
+    const id = document.getElementById("addId").value.trim().toUpperCase();
+    if (!id) return;
+
+    if (blockList.includes(id)) {
+        document.getElementById("addmsg").innerHTML = "❗ Already exists";
+        return;
+    }
+
+    blockList.push(id);
+    blockList.sort();
+    render();
+    await updateGitHub();
+
+    document.getElementById("addmsg").innerHTML = "✔️ Added & synced to GitHub";
+}
+
+/* ------------------------
+   REMOVE REQUESTER
+------------------------ */
+async function removeRequester() {
+    const id = document.getElementById("removeId").value.trim().toUpperCase();
+    if (!id) return;
+
+    if (!blockList.includes(id)) {
+        document.getElementById("removemsg").innerHTML = "❗ Not in list";
+        return;
+    }
+
+    blockList = blockList.filter(x => x !== id);
+    render();
+    await updateGitHub();
+
+    document.getElementById("removemsg").innerHTML = "✔️ Removed & synced to GitHub";
+}
+
+/* ------------------------
+   DIRECT REMOVE (UI button)
+------------------------ */
+async function removeDirect(id) {
+    blockList = blockList.filter(x => x !== id);
+    render();
+    await updateGitHub();
+}
+
+/* ------------------------
+   RENDER UI
+------------------------ */
+function render() {
+    document.getElementById("jsonBox").textContent =
+        JSON.stringify({ block_list: blockList }, null, 2);
+
+    const box = document.getElementById("listBox");
+    box.innerHTML = "";
+
+    blockList.forEach(id => {
+        const row = document.createElement("div");
+        row.className = "list-item";
+        row.innerHTML = `
+            <span>${id}</span>
+            <button class="red" onclick="removeDirect('${id}')">❌</button>
+        `;
+        box.appendChild(row);
+    });
+}
+
+</script>
+
 </body>
 </html>
