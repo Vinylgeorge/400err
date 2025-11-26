@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>AB2soft Block List Manager — GitHub Synced</title>
+<title>AB2soft Block List Manager — GitHub Sync</title>
 
 <style>
     body { font-family: Arial; margin: 20px; background:#f5f7fb; }
@@ -15,34 +15,23 @@
         padding:8px; font-size:14px; border-radius:5px;
     }
     input { width:100%; border:1px solid #bbb; }
-    button {
-        cursor:pointer; border:none; background:#2563eb; color:white;
-        margin-top:8px;
-    }
+    button { cursor:pointer; border:none; background:#2563eb; color:white; margin-top:8px; }
     button.red { background:#b91c1c; }
-    .list-item {
-        display:flex; justify-content:space-between; padding:5px 0;
-        border-bottom:1px solid #eee; font-family: monospace;
-    }
-    pre {
-        background:#111; color:#eee; padding:10px;
-        border-radius:6px; font-size:12px; overflow-x:auto;
-    }
+    .hidden { display:none !important; }
 </style>
 
 </head>
 <body>
 
 <h2>🔒 AB2soft Block List Manager (GitHub Synced)</h2>
-<p>Updates:  
+<p>This updates your file:</p>
 <b>https://github.com/Vinylgeorge/400err/blob/main/block_list.json</b>
-</p>
 
 <!-- TOKEN INPUT -->
 <div class="card">
     <h3>GitHub Personal Access Token</h3>
-    <p>⭐ Token stays only in RAM. Never saved or sent anywhere except GitHub.</p>
-    <input id="token" type="password" placeholder="Paste your GitHub PAT (contents read/write required)">
+    <p>⭐ Token stays only in RAM — never saved.</p>
+    <input id="token" type="password" placeholder="Paste GitHub PAT (Contents Read/Write)">
     <button onclick="saveToken()">Save Token</button>
     <div id="tokmsg"></div>
 </div>
@@ -63,17 +52,9 @@
     <div id="removemsg"></div>
 </div>
 
-<!-- LIST -->
-<div class="card">
-    <h3>Current Block List</h3>
-    <div id="listBox"></div>
-</div>
-
-<!-- JSON -->
-<div class="card">
-    <h3>JSON Output</h3>
-    <pre id="jsonBox"></pre>
-</div>
+<!-- HIDDEN BLOCK LIST & JSON -->
+<div id="listBox" class="hidden"></div>
+<pre id="jsonBox" class="hidden"></pre>
 
 <script>
 /* ------------------------
@@ -88,32 +69,28 @@ let token = "";
 let fileSha = "";
 let blockList = [];
 
-/* ------------------------
-   SAVE TOKEN
------------------------- */
+/* Save PAT */
 function saveToken() {
     token = document.getElementById("token").value.trim();
     if (!token) {
         document.getElementById("tokmsg").innerHTML = "❗ Enter a valid token";
         return;
     }
-    document.getElementById("tokmsg").innerHTML = "✔️ Token saved (RAM only)";
-
+    document.getElementById("tokmsg").innerHTML = "✔️ Token saved";
     loadFromGitHub();
 }
 
-/* ------------------------
-   LOAD EXISTING BLOCK LIST
------------------------- */
+/* Load block_list.json from GitHub */
 async function loadFromGitHub() {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+
     const res = await fetch(url, {
+        cache: "no-store",
         headers: { "Authorization": "Bearer " + token }
     });
 
     if (!res.ok) {
-        document.getElementById("tokmsg").innerHTML =
-            "❗ Invalid token or insufficient permissions.";
+        document.getElementById("tokmsg").innerHTML = "❗ Invalid token or no write access";
         return;
     }
 
@@ -124,24 +101,17 @@ async function loadFromGitHub() {
     const json = JSON.parse(decoded);
 
     blockList = [...new Set(json.block_list)].sort();
-
-    render();
 }
 
-/* ------------------------
-   UPDATE FILE ON GITHUB
------------------------- */
+/* Update file on GitHub */
 async function updateGitHub() {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-    const newContent = {
-        block_list: blockList
-    };
-
+    const newContent = { block_list: blockList };
     const encoded = btoa(JSON.stringify(newContent, null, 2));
 
     const body = {
-        message: "Updated block_list.json via AB2soft HTML tool",
+        message: "Update block_list.json via AB2soft tool",
         content: encoded,
         sha: fileSha,
         branch: branch
@@ -157,12 +127,16 @@ async function updateGitHub() {
     });
 
     const data = await res.json();
-    fileSha = data.content.sha; // update SHA for next commit
+
+    if (!res.ok) {
+        alert("GitHub Error: " + JSON.stringify(data, null, 2));
+        return;
+    }
+
+    fileSha = data.content.sha;
 }
 
-/* ------------------------
-   ADD REQUESTER
------------------------- */
+/* Add requester */
 async function addRequester() {
     const id = document.getElementById("addId").value.trim().toUpperCase();
     if (!id) return;
@@ -174,15 +148,12 @@ async function addRequester() {
 
     blockList.push(id);
     blockList.sort();
-    render();
-    await updateGitHub();
 
-    document.getElementById("addmsg").innerHTML = "✔️ Added & synced to GitHub";
+    await updateGitHub();
+    document.getElementById("addmsg").innerHTML = "✔️ Added & updated GitHub";
 }
 
-/* ------------------------
-   REMOVE REQUESTER
------------------------- */
+/* Remove requester */
 async function removeRequester() {
     const id = document.getElementById("removeId").value.trim().toUpperCase();
     if (!id) return;
@@ -193,39 +164,9 @@ async function removeRequester() {
     }
 
     blockList = blockList.filter(x => x !== id);
-    render();
+
     await updateGitHub();
-
-    document.getElementById("removemsg").innerHTML = "✔️ Removed & synced to GitHub";
-}
-
-/* ------------------------
-   DIRECT REMOVE BUTTON
------------------------- */
-async function removeDirect(id) {
-    blockList = blockList.filter(x => x !== id);
-    render();
-    await updateGitHub();
-}
-
-/* ------------------------
-   RENDER UI
------------------------- */
-function render() {
-    document.getElementById("jsonBox").textContent =
-        JSON.stringify({ block_list: blockList }, null, 2);
-
-    const box = document.getElementById("listBox");
-    box.innerHTML = "";
-
-    blockList.forEach(id => {
-        box.innerHTML += `
-            <div class="list-item">
-                <span>${id}</span>
-                <button class="red" onclick="removeDirect('${id}')">❌</button>
-            </div>
-        `;
-    });
+    document.getElementById("removemsg").innerHTML = "✔️ Removed & updated GitHub";
 }
 </script>
 
