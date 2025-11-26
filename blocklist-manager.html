@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Safe GitHub-Synced Block List Manager</title>
+<title>AB2soft Block List Manager — GitHub Synced</title>
 
 <style>
     body { font-family: Arial; margin: 20px; background:#f5f7fb; }
@@ -15,7 +15,10 @@
         padding:8px; font-size:14px; border-radius:5px;
     }
     input { width:100%; border:1px solid #bbb; }
-    button { cursor:pointer; border:none; background:#2563eb; color:white; margin-top:8px; }
+    button {
+        cursor:pointer; border:none; background:#2563eb; color:white;
+        margin-top:8px;
+    }
     button.red { background:#b91c1c; }
     .list-item {
         display:flex; justify-content:space-between; padding:5px 0;
@@ -30,13 +33,16 @@
 </head>
 <body>
 
-<h2>🔒 Safe GitHub-Synced Requester Block List Manager</h2>
+<h2>🔒 AB2soft Block List Manager (GitHub Synced)</h2>
+<p>Updates:  
+<b>https://github.com/Vinylgeorge/400err/blob/main/block_list.json</b>
+</p>
 
 <!-- TOKEN INPUT -->
 <div class="card">
     <h3>GitHub Personal Access Token</h3>
-    <p>⭐ Token is <b>NOT saved</b> and <b>never leaves your computer</b>.</p>
-    <input id="token" type="password" placeholder="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">
+    <p>⭐ Token stays only in RAM. Never saved or sent anywhere except GitHub.</p>
+    <input id="token" type="password" placeholder="Paste your GitHub PAT (contents read/write required)">
     <button onclick="saveToken()">Save Token</button>
     <div id="tokmsg"></div>
 </div>
@@ -59,7 +65,7 @@
 
 <!-- LIST -->
 <div class="card">
-    <h3>Block List</h3>
+    <h3>Current Block List</h3>
     <div id="listBox"></div>
 </div>
 
@@ -71,7 +77,7 @@
 
 <script>
 /* ------------------------
-   CONFIGURATION
+   EXACT TARGET INFORMATION
 ------------------------ */
 const owner  = "Vinylgeorge";
 const repo   = "400err";
@@ -83,7 +89,7 @@ let fileSha = "";
 let blockList = [];
 
 /* ------------------------
-   SAVE TOKEN (LOCAL ONLY)
+   SAVE TOKEN
 ------------------------ */
 function saveToken() {
     token = document.getElementById("token").value.trim();
@@ -97,7 +103,7 @@ function saveToken() {
 }
 
 /* ------------------------
-   LOAD EXISTING GITHUB JSON
+   LOAD EXISTING BLOCK LIST
 ------------------------ */
 async function loadFromGitHub() {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
@@ -106,7 +112,8 @@ async function loadFromGitHub() {
     });
 
     if (!res.ok) {
-        document.getElementById("tokmsg").innerHTML = "❗ Invalid token or no repo access";
+        document.getElementById("tokmsg").innerHTML =
+            "❗ Invalid token or insufficient permissions.";
         return;
     }
 
@@ -122,7 +129,7 @@ async function loadFromGitHub() {
 }
 
 /* ------------------------
-   PUSH UPDATED JSON TO GITHUB
+   UPDATE FILE ON GITHUB
 ------------------------ */
 async function updateGitHub() {
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
@@ -134,7 +141,7 @@ async function updateGitHub() {
     const encoded = btoa(JSON.stringify(newContent, null, 2));
 
     const body = {
-        message: "Update block_list.json via AB2soft HTML tool",
+        message: "Updated block_list.json via AB2soft HTML tool",
         content: encoded,
         sha: fileSha,
         branch: branch
@@ -150,7 +157,7 @@ async function updateGitHub() {
     });
 
     const data = await res.json();
-    fileSha = data.content.sha;
+    fileSha = data.content.sha; // update SHA for next commit
 }
 
 /* ------------------------
@@ -181,7 +188,7 @@ async function removeRequester() {
     if (!id) return;
 
     if (!blockList.includes(id)) {
-        document.getElementById("removemsg").innerHTML = "❗ Not in list";
+        document.getElementById("removemsg").innerHTML = "❗ Not found";
         return;
     }
 
@@ -193,7 +200,7 @@ async function removeRequester() {
 }
 
 /* ------------------------
-   DIRECT REMOVE (UI button)
+   DIRECT REMOVE BUTTON
 ------------------------ */
 async function removeDirect(id) {
     blockList = blockList.filter(x => x !== id);
@@ -212,16 +219,14 @@ function render() {
     box.innerHTML = "";
 
     blockList.forEach(id => {
-        const row = document.createElement("div");
-        row.className = "list-item";
-        row.innerHTML = `
-            <span>${id}</span>
-            <button class="red" onclick="removeDirect('${id}')">❌</button>
+        box.innerHTML += `
+            <div class="list-item">
+                <span>${id}</span>
+                <button class="red" onclick="removeDirect('${id}')">❌</button>
+            </div>
         `;
-        box.appendChild(row);
     });
 }
-
 </script>
 
 </body>
