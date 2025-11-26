@@ -149,7 +149,7 @@ async function addRequester() {
     blockList.sort();
 
     await updateGitHub();
-    document.getElementById("addmsg").innerHTML = "✔️ Added & updated GitHub";
+    document.getElementById("addmsg").innerHTML = "✔️ Added";
 }
 
 /* Remove requester */
@@ -165,7 +165,7 @@ async function removeRequester() {
     blockList = blockList.filter(x => x !== id);
 
     await updateGitHub();
-    document.getElementById("removemsg").innerHTML = "✔️ Removed & updated GitHub";
+    document.getElementById("removemsg").innerHTML = "✔️ Removed";
 }
 </script>
 
