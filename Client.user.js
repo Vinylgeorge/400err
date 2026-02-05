@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         🔒 AB2soft Earnings Report v6.4 (TM Compatible + UpdateBank Logic)
+// @name         🔒 AB2soft Earnings Report v6.5 (TM Compatible + UpdateBank + NoPrevMonthRule)
 // @namespace    ab2soft.secure
-// @version      6.4
-// @description  Uploads MTurk earnings to Firebase only if TEAM exists in Sheet (once per day, password protected). Adds UPDATE BANK logic + lastMonth >=$1 filter.
+// @version      6.5
+// @description  Uploads MTurk earnings to Firebase only if TEAM exists in Sheet (once per day, password protected). Adds UPDATE BANK logic + lastMonth >=$1 filter + if no prev-month transfers then keep last transfer fields and zero other amounts.
 // @match        https://worker.mturk.com/earnings*
 // @run-at       document-idle
 // @grant        GM_getValue
@@ -35,7 +35,7 @@
 
   const PASS_HASH_HEX = '9b724d9df97a91d297dc1c714a3987338ebb60a2a53311d2e382411a78b9e07d';
 
-  // If ALL transfer rows are bank + Funds Sent, then force amounts to 0 and set transfer method to UPDATE BANK
+  // If ALL transfer rows are bank + Funds Sent => zero amounts + transfer method UPDATE BANK
   const ENABLE_UPDATE_BANK_LOGIC = true;
 
   /* ────────────────────────────── HELPERS ────────────────────────────── */
@@ -145,9 +145,9 @@
     return new Date(yy, mm - 1, dd);
   }
 
+  // ✅ returns { sumStr, hadAnyPrevMonth }
   function computeLastMonthEarnings(bodyData) {
-    // ✅ New logic: only count transfers >= $1 for last month sum
-    if (!Array.isArray(bodyData)) return '0.00';
+    if (!Array.isArray(bodyData)) return { sumStr: '0.00', hadAnyPrevMonth: false };
 
     const now = new Date();
     const startThis = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -156,19 +156,24 @@
     endLast.setHours(23, 59, 59, 999);
 
     let total = 0;
+    let hadAnyPrevMonth = false;
+
     for (const t of bodyData) {
       const d = parseMMDDYY(t.requestedDate);
       if (!d) continue;
+
       if (d >= startLast && d <= endLast) {
+        hadAnyPrevMonth = true;
         const amt = parseFloat(t.amountRequested) || 0;
-        total += (amt >= 1 ? amt : 0); // < $1 treated as 0
+        // ✅ Normal rule: only >= $1 counts
+        total += (amt >= 1 ? amt : 0);
       }
     }
-    return total.toFixed(2);
+
+    return { sumStr: total.toFixed(2), hadAnyPrevMonth };
   }
 
   function shouldUpdateBankOnly(bodyData) {
-    // ✅ New logic: ONLY if rows are "Transfer to bank account" AND "Funds Sent"
     if (!Array.isArray(bodyData) || bodyData.length === 0) return false;
     return bodyData.every(x => {
       const type = String(x.type || '').toLowerCase();
@@ -179,7 +184,6 @@
 
   /* ────────────────────────────── DATA EXTRACT ────────────────────────────── */
   async function extractData() {
-    // wait until page has worker bar + current earnings
     await waitFor(() => getWorkerId() || $('.me-bar'), 15000);
 
     const html = document.body.innerHTML.replace(/\s+/g, ' ');
@@ -187,8 +191,9 @@
     const userName = $(".me-bar a[href='/account']")?.textContent.trim() || '';
     const currentEarnings = (html.match(/Current Earnings:\s*\$([\d.]+)/i) || [])[1] || '0.00';
 
-    let lastTransferAmount = '', lastTransferDate = '', lastMonthEarnings = '0.00';
+    let lastTransferAmount = '0.00', lastTransferDate = '', lastMonthEarnings = '0.00';
     let updateBankFlag = false;
+    let noPrevMonthFlag = false;
 
     try {
       const el = $$('[data-react-class]').find(e => e.getAttribute('data-react-class')?.includes('TransferHistoryTable'));
@@ -200,13 +205,21 @@
           updateBankFlag = true;
         }
 
+        // latest transfer row (always)
         if (body.length > 0) {
           const last = body[0];
-          lastTransferAmount = (last.amountRequested ?? '').toString();
+          const amt = parseFloat(last.amountRequested);
+          lastTransferAmount = Number.isFinite(amt) ? amt.toFixed(2) : (String(last.amountRequested ?? '0.00'));
           lastTransferDate   = last.requestedDate ?? '';
         }
 
-        lastMonthEarnings = computeLastMonthEarnings(body);
+        const lm = computeLastMonthEarnings(body);
+        lastMonthEarnings = lm.sumStr;
+
+        // ✅ NEW: if no transfers in previous month
+        if (!lm.hadAnyPrevMonth) {
+          noPrevMonthFlag = true;
+        }
       }
     } catch {}
 
@@ -218,12 +231,20 @@
     let finalLastMonthEarnings = lastMonthEarnings;
     let finalLastTransferAmount = lastTransferAmount;
 
-    // ✅ Apply UPDATE BANK rule
+    // ✅ Apply UPDATE BANK rule (strongest override)
     if (updateBankFlag) {
       finalCurrentEarnings = '0.00';
       finalLastMonthEarnings = '0.00';
       finalLastTransferAmount = '0.00';
       finalBankAccount = 'UPDATE BANK';
+    } else if (noPrevMonthFlag) {
+      // ✅ NEW RULE:
+      // If there are NO transfers in previous month:
+      // keep lastTransferAmount & lastTransferDate (already extracted),
+      // set other amount fields to 0.00, and DO NOT care about $1 rule here.
+      finalCurrentEarnings = '0.00';
+      finalLastMonthEarnings = '0.00';
+      // lastTransfer fields remain as-is
     }
 
     return {
@@ -233,10 +254,11 @@
       lastTransferAmount: finalLastTransferAmount,
       lastTransferDate,
       nextTransferDate,
-      bankAccount: finalBankAccount, // "Transfer Method (Bank/GC)" field uses this
+      bankAccount: finalBankAccount, // "Transfer Method (Bank/GC)" uses this
       ip,
       lastMonthEarnings: finalLastMonthEarnings,
-      _updateBankFlag: updateBankFlag
+      _updateBankFlag: updateBankFlag,
+      _noPrevMonthFlag: noPrevMonthFlag
     };
   }
 
@@ -245,8 +267,6 @@
     const map = {};
     try {
       const text = await gmGet(SHEET_CSV);
-
-      // Basic CSV split (your sheet appears simple; if you have commas inside quotes, tell me and I’ll swap to a real CSV parser)
       const rows = text.split(/\r?\n/).filter(Boolean).map(r => r.split(','));
       const headers = rows.shift().map(h => h.trim());
 
@@ -282,7 +302,6 @@
   }
 
   /* ────────────────────────────── MAIN LOGIC ────────────────────────────── */
-  // Firebase dynamic imports (works in TM if @connect www.gstatic.com is present)
   const { initializeApp } = await import(FIREBASE_APP_JS);
   const { getFirestore, doc, setDoc } = await import(FIRESTORE_JS);
 
@@ -319,7 +338,7 @@
     return;
   }
 
-  // ✅ Bangladesh timestamp for dashboard
+  // ✅ Bangladesh timestamp
   const mergedData = {
     ...data,
     ...extraInfo,
