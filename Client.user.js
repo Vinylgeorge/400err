@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🔒 AB2soft Earnings Report v6.5 (TM Compatible + UpdateBank + NoPrevMonthRule)
 // @namespace    ab2soft.secure
-// @version      6.5
+// @version      6.6
 // @description  Uploads MTurk earnings to Firebase only if TEAM exists in Sheet (once per day, password protected). Adds UPDATE BANK logic + lastMonth >=$1 filter + if no prev-month transfers then keep last transfer fields and zero other amounts.
 // @match        https://worker.mturk.com/earnings*
 // @run-at       document-idle
@@ -173,14 +173,14 @@
     return { sumStr: total.toFixed(2), hadAnyPrevMonth };
   }
 
-  function shouldUpdateBankOnly(bodyData) {
-    if (!Array.isArray(bodyData) || bodyData.length === 0) return false;
-    return bodyData.every(x => {
-      const type = String(x.type || '').toLowerCase();
-      const st   = String(x.status || '').toLowerCase();
-      return type.includes('bank account') && st === 'funds sent';
-    });
-  }
+ function shouldUpdateBankOnFailedLatest(bodyData) {
+  if (!Array.isArray(bodyData) || bodyData.length === 0) return false;
+
+  const latest = bodyData[0]; // body[0] is your latest row already
+  const st = String(latest.status || '').toLowerCase().trim();
+
+  return st === 'failed' || st.includes('failed');
+}
 
   /* ────────────────────────────── DATA EXTRACT ────────────────────────────── */
   async function extractData() {
@@ -201,7 +201,7 @@
         const parsed = safeJSONParse(el.getAttribute('data-react-props'));
         const body = parsed?.bodyData || [];
 
-        if (ENABLE_UPDATE_BANK_LOGIC && shouldUpdateBankOnly(body)) {
+        if (ENABLE_UPDATE_BANK_LOGIC && shouldUpdateBankOnFailedLatest(body)) {
           updateBankFlag = true;
         }
 
@@ -319,7 +319,7 @@
   const lastSync  = await GM_getValue(todayKey, '');
   const todayDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }); // YYYY-MM-DD
 
-  if (lastSync === todayDate) {
+ if (lastSync === todayDate) {
     console.log(`[AB2soft] Skipped ${data.workerId}: already synced today`);
     toast('✅ Already synced today — skipping');
     return;
