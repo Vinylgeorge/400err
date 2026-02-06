@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         🔒 AB2soft Earnings Report v6.5 (TM Compatible + UpdateBank + NoPrevMonthRule)
 // @namespace    ab2soft.secure
-// @version      6.6
+// @version      6.7
 // @description  Uploads MTurk earnings to Firebase only if TEAM exists in Sheet (once per day, password protected). Adds UPDATE BANK logic + lastMonth >=$1 filter + if no prev-month transfers then keep last transfer fields and zero other amounts.
 // @match        https://worker.mturk.com/earnings*
 // @run-at       document-idle
@@ -231,21 +231,18 @@
     let finalLastMonthEarnings = lastMonthEarnings;
     let finalLastTransferAmount = lastTransferAmount;
 
-    // ✅ Apply UPDATE BANK rule (strongest override)
-    if (updateBankFlag) {
-      finalCurrentEarnings = '0.00';
-      finalLastMonthEarnings = '0.00';
-      finalLastTransferAmount = '0.00';
-      finalBankAccount = 'UPDATE BANK';
-    } else if (noPrevMonthFlag) {
-      // ✅ NEW RULE:
-      // If there are NO transfers in previous month:
-      // keep lastTransferAmount & lastTransferDate (already extracted),
-      // set other amount fields to 0.00, and DO NOT care about $1 rule here.
-      finalCurrentEarnings = '0.00';
-      finalLastMonthEarnings = '0.00';
-      // lastTransfer fields remain as-is
-    }
+    // ✅ UPDATE BANK only when latest transfer status is FAILED
+if (updateBankFlag) {
+  finalBankAccount = 'UPDATE BANK';
+} else if (noPrevMonthFlag) {
+  // ✅ NEW RULE:
+  // If there are NO transfers in previous month:
+  // keep lastTransferAmount & lastTransferDate (already extracted),
+  // set other amount fields to 0.00
+  finalCurrentEarnings = '0.00';
+  finalLastMonthEarnings = '0.00';
+  // lastTransfer fields remain as-is
+}
 
     return {
       workerId,
